@@ -5,7 +5,6 @@ from typing import List
 
 import faiss
 import numpy as np
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -13,8 +12,14 @@ from fastapi.responses import FileResponse
 from openai import OpenAI
 from pydantic import BaseModel
 
-load_dotenv()
+# ============ CRITICAL FIX: FORCE OPENAI KEY FROM RAILWAY ============
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    raise ValueError("OPENAI_API_KEY environment variable is not set! Add it in Railway Variables.")
 
+client = OpenAI(api_key=openai_api_key)
+
+# ============ FASTAPI APP SETUP ============
 app = FastAPI()
 
 app.add_middleware(
@@ -25,8 +30,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
+# Load FAISS index and SQLite DB
 DB_PATH = "data/rulebook.db"
 FAISS_PATH = "data/rulebook.index"
 
@@ -34,6 +38,7 @@ conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cur = conn.cursor()
 index = faiss.read_index(FAISS_PATH)
 
+# ============ PYDANTIC MODELS ============
 class Source(BaseModel):
     page: int
     image_url: str | None = None
@@ -47,6 +52,7 @@ class ChatResponse(BaseModel):
     reply: str
     sources: List[Source]
 
+# ============ EMBEDDING & RETRIEVAL ============
 def embed(text: str) -> np.ndarray:
     res = client.embeddings.create(model="text-embedding-3-small", input=text)
     return np.array(res.data[0].embedding, dtype="float32")
@@ -55,22 +61,24 @@ def rewrite_query(user_message: str) -> str:
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "Rewrite casual Fallout: Factions questions into rulebook search terms. Output ONLY the query."},
-            {"role": "user", "content": user_message},
+            {"role": "system", "content": "Rewrite player questions about Fallout: Factions – Nuka-World into short, precise rulebook search queries using official terminology. Output ONLY the query."},
+            {"role": "user", "content": user_message}
         ],
+        temperature=0.2,
     )
     return completion.choices[0].message.content.strip()
 
 def retrieve_chunks(user_message: str):
     rewritten = rewrite_query(user_message)
-    emb_orig = embed(user_message)
-    emb_rewritten = embed(rewritten)
-    emb = (emb_orig + emb_rewritten) / 2
-    emb = np.expand_dims(emb, axis=0)
+    emb1 = embed(user_message)
+    emb2 = embed(rewritten)
+    emb = (emb1 + emb2) / 2.0
+    emb = np.expand_dims(emb, axis=0).astype("float32")
 
     D, I = index.search(emb, k=6)
-    results = []
+    chunks = []
     pages = []
+
     for idx in I[0]:
         if idx == -1:
             continue
@@ -78,30 +86,41 @@ def retrieve_chunks(user_message: str):
         row = cur.fetchone()
         if row:
             pages.append(row[0])
-            results.append(row[1][:2000])
-    return results, pages, rewritten
+            chunks.append(row[1][:3000])  # limit chunk size
 
+    return chunks, pages, rewritten
+
+# ============ CHAT ENDPOINT ============
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     session_id = req.session_id or str(uuid.uuid4())
-    chunks, pages, rewritten_query = retrieve_chunks(req.message)
+
+    chunks, pages, rewritten = retrieve_chunks(req.message)
 
     if not chunks:
         return ChatResponse(
             session_id=session_id,
-            reply="SHORT ANSWER: I couldn't find that rule.\n\nREASONING: No matching sections in the rulebook – try rephrasing?",
+            reply="SHORT ANSWER: No matching rule found.\n\nREASONING: I couldn't locate that in the Fallout: Factions – Nuka-World rulebook. Try rephrasing!",
             sources=[]
         )
 
     context = "\n\n-----\n\n".join(chunks)
 
-    system_prompt = "You are the official Fallout: Factions Rules Oracle. Answer clearly using only the provided excerpts. Start with SHORT ANSWER: then blank line then REASONING:. Never mention page numbers in text."
-    
+    system_prompt = (
+        "You are the official Fallout: Factions Rules Oracle (Pip-Boy edition). "
+        "Answer ONLY using the provided rulebook excerpts. "
+        "Format:\n"
+        "SHORT ANSWER: [one clear ruling]\n\n"
+        "REASONING: [natural explanation, no page numbers here]\n"
+        "Be friendly and helpful like a vault dweller."
+    )
+
     completion = client.chat.completions.create(
         model="gpt-4o",
+        temperature=0.7,
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Question: {req.message}\nRewritten: {rewritten_query}\n\nExcerpts:\n{context}"}
+            {"role": "user", "content": f"Player question: {req.message}\nSearch terms: {rewritten}\n\nExcerpts:\n{context}"}
         ],
     )
 
@@ -112,6 +131,13 @@ async def chat(req: ChatRequest):
 
     return ChatResponse(session_id=session_id, reply=reply, sources=sources)
 
-# Serve the Pip-Boy frontend
-app.mount("/pages", StaticFiles(directory="data/pages"), name="pages")  # if you have page images later
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+# ============ SERVE PIP-BOY FRONTEND ============
+app.mount("/pages", StaticFiles(directory="data/pages"), name="pages")  # optional for page images
+app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
+
+# Root route so the Railway URL opens the Pip-Boy instantly
+@app.get("/")
+async def root():
+    return FileResponse("frontend/index.html")
+
+print("Pip-Boy Rules Oracle backend loaded – ready for the wasteland!")
