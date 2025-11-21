@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fallout Factions Rules Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="pipboy-frame">
+    <div class="crt-overlay"></div>
+
+    <header id="pipboy-header">
+      <div class="title-line">FALLOUT FACTIONS RULES BOT</div>
+      <div class="subtitle-line">Powered by Pip-Boy • Mirrorscape Demo</div>
+    </header>
+
+    <main id="pipboy-main">
+      <div id="chat-window"></div>
+    </main>
+
+    <footer id="pipboy-footer">
+      <form id="chat-form" autocomplete="off">
+        <input
+          id="question-input"
+          type="text"
+          name="question"
+          placeholder="e.g. If I can only see an enemy’s arm, can I still shoot them?"
+          autocomplete="off"
+        />
+        <button id="ask-button" type="submit">ASK</button>
+      </form>
+      <div id="status-line">READY</div>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

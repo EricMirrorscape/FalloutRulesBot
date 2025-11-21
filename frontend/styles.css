@@ -1,0 +1,302 @@
+/* GLOBAL PIP-BOY LOOK */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Courier New", monospace;
+  color: #00ff80;
+  overflow: hidden; /* prevent outer scrolling */
+}
+
+/* PIP-BOY FRAME */
+
+#pipboy-frame {
+  position: relative;
+  width: 1200px;
+  max-width: 98vw;
+  height: 650px;
+  max-height: 96vh;
+  border: 3px solid #00ff66;
+  box-shadow: 0 0 25px #00ff66, 0 0 80px #00ff66;
+  background: radial-gradient(circle at 50% 0, #022a14 0, #010a05 55%, #000 100%);
+  color: #00ff80;
+  padding: 18px 28px 14px 28px;
+  overflow: hidden; /* chat scrolls inside, frame is fixed */
+  animation: pipboy-flicker 2.5s infinite alternate;
+}
+
+/* CRT OVERLAY (scanlines + glow) */
+
+.crt-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 255, 100, 0.16) 0px,
+      rgba(0, 255, 100, 0.16) 1px,
+      transparent 2px
+    );
+  mix-blend-mode: screen;
+  opacity: 0.35;
+  z-index: 3;
+}
+
+#pipboy-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 0, rgba(255, 255, 255, 0.18), transparent 55%);
+  opacity: 0.25;
+  z-index: 2;
+}
+
+/* HEADER */
+
+#pipboy-header {
+  position: relative;
+  z-index: 4;
+  margin-bottom: 10px;
+}
+
+.title-line {
+  font-size: 26px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.subtitle-line {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+/* MAIN CHAT AREA */
+
+#pipboy-main {
+  position: relative;
+  z-index: 4;
+  margin-top: 6px;
+  margin-bottom: 6px;
+  height: calc(100% - 120px); /* leave room for header + footer */
+  border: 2px solid #00ff40;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.82);
+}
+
+#chat-window {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+/* CUSTOM SCROLLBAR */
+
+#chat-window::-webkit-scrollbar {
+  width: 6px;
+}
+
+#chat-window::-webkit-scrollbar-track {
+  background: #020d08;
+}
+
+#chat-window::-webkit-scrollbar-thumb {
+  background: #00ff66;
+}
+
+/* MESSAGE BUBBLES */
+
+.message {
+  border: 2px solid #00ff4d;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  background: rgba(0, 0, 0, 0.9);
+  box-shadow: 0 0 12px rgba(0, 255, 120, 0.2);
+}
+
+.message.user {
+  margin-left: 15%;
+  border-color: #00ff99;
+}
+
+.message.bot {
+  margin-right: 15%;
+  border-color: #00ff40;
+}
+
+.message-header {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  opacity: 0.95;
+}
+
+.message-body {
+  font-size: 13px;
+  line-height: 1.42;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Rulebook pages line */
+
+.message-pages {
+  margin-top: 8px;
+  font-size: 11px;
+  opacity: 0.95;
+}
+
+/* Thinking animation */
+
+.message.bot.thinking .message-body {
+  position: relative;
+}
+
+.message.bot.thinking .message-body::after {
+  content: "▌";
+  animation: caret-blink 0.7s steps(1) infinite;
+  margin-left: 3px;
+}
+
+/* FOOTER INPUT */
+
+#pipboy-footer {
+  position: relative;
+  z-index: 4;
+  margin-top: 4px;
+}
+
+#chat-form {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+#question-input {
+  flex: 1;
+  background: #000;
+  border: 2px solid #00ff66;
+  color: #00ff80;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+#question-input::placeholder {
+  color: rgba(0, 255, 128, 0.55);
+}
+
+#question-input:-webkit-autofill,
+#question-input:-webkit-autofill:hover,
+#question-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #000 inset;
+  -webkit-text-fill-color: #00ff80;
+}
+
+/* Ask button */
+
+#ask-button {
+  min-width: 80px;
+  background: #00ff40;
+  color: #000;
+  border: 2px solid #00ff99;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  box-shadow: 0 0 12px rgba(0, 255, 120, 0.8);
+  transition: transform 0.06s ease, box-shadow 0.06s ease, background 0.06s ease;
+}
+
+#ask-button:hover {
+  background: #00ff80;
+  transform: translateY(-1px);
+  box-shadow: 0 0 18px rgba(0, 255, 140, 0.9);
+}
+
+#ask-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 0 8px rgba(0, 255, 120, 0.7);
+}
+
+/* STATUS LINE */
+
+#status-line {
+  margin-top: 6px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* ANIMATIONS */
+
+@keyframes caret-blink {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes pipboy-flicker {
+  0% {
+    filter: brightness(1) contrast(1.1);
+  }
+  40% {
+    filter: brightness(1.02) contrast(1.12);
+  }
+  50% {
+    filter: brightness(0.97) contrast(1.05);
+  }
+  70% {
+    filter: brightness(1.03) contrast(1.12);
+  }
+  100% {
+    filter: brightness(0.98) contrast(1.08);
+  }
+}
+
+/* SMALL SCREENS */
+
+@media (max-width: 900px) {
+  #pipboy-frame {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .title-line {
+    font-size: 20px;
+  }
+
+  #pipboy-main {
+    height: calc(100% - 130px);
+  }
+}
