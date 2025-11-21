@@ -1,6 +1,6 @@
-// FRONTEND LOGIC FOR FALLOUT FACTIONS RULES BOT
+// frontend/script.js – FULL FILE, COPY-PASTE THIS ENTIRE THING
 
-const API_URL = "http://127.0.0.1:8000/chat";
+const API_URL = "/chat";  // ← This makes it work on Railway, Vercel, Render, etc.
 
 document.addEventListener("DOMContentLoaded", () => {
   const chatWindow = document.getElementById("chat-window");
@@ -23,9 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function createMessageElement(role, text, pages = [], thinking = false) {
     const msg = document.createElement("div");
     msg.classList.add("message", role);
-    if (thinking) {
-      msg.classList.add("thinking");
-    }
+    if (thinking) msg.classList.add("thinking");
 
     const header = document.createElement("div");
     header.classList.add("message-header");
@@ -42,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const pagesDiv = document.createElement("div");
       pagesDiv.classList.add("message-pages");
       const label = pages.length === 1 ? "Rulebook page" : "Rulebook pages";
-      const pageText = pages.map((p) => `pg ${p}`).join(", ");
+      const pageText = pages.map(p => `pg ${p}`).join(", ");
       pagesDiv.textContent = `${label}: ${pageText}`;
       msg.appendChild(pagesDiv);
     }
@@ -61,88 +59,81 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isSending || !question.trim()) return;
     isSending = true;
     askButton.disabled = true;
+    input.blur();
 
-    // USER MESSAGE
+    // User message
     appendMessage("user", question);
 
-    // BOT "THINKING" MESSAGE
+    // Bot thinking bubbles
     const thinkingMsg = appendMessage("bot", "ACCESSING NUKA-WORLD RULES DATABASE...", [], true);
-    setStatus("CONTACTING RULES SERVER...");
+    setStatus("QUERYING RULEBOOK...");
 
     try {
       const response = await fetch(API_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_id: sessionId,
-          message: question,
+          message: question.trim(),
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Server responded with status ${response.status}`);
+        throw new Error(`Server error ${response.status}`);
       }
 
       const data = await response.json();
       sessionId = data.session_id || sessionId;
 
-      // Extract pages from sources
       const pages = (data.sources || [])
-        .map((s) => s.page)
-        .filter((p) => typeof p === "number")
+        .map(s => s.page)
+        .filter(p => typeof p === "number")
         .sort((a, b) => a - b);
 
-      // Replace thinking text with real answer + pages
+      // Replace thinking message with real answer
       thinkingMsg.classList.remove("thinking");
-      const bodyEl = thinkingMsg.querySelector(".message-body");
-      bodyEl.textContent = data.reply || "[No reply text]";
+      thinkingMsg.querySelector(".message-body").textContent = data.reply || "[No reply]";
 
       if (pages.length) {
         const pagesDiv = document.createElement("div");
         pagesDiv.classList.add("message-pages");
         const label = pages.length === 1 ? "Rulebook page" : "Rulebook pages";
-        const pageText = pages.map((p) => `pg ${p}`).join(", ");
-        pagesDiv.textContent = `${label}: ${pageText}`;
+        pagesDiv.textContent = `${label}: ${pages.map(p => `pg ${p}`).join(", ")}`;
         thinkingMsg.appendChild(pagesDiv);
       }
 
       setStatus("READY");
-      scrollToBottom();
     } catch (err) {
       console.error(err);
       thinkingMsg.classList.remove("thinking");
-      const bodyEl = thinkingMsg.querySelector(".message-body");
-      bodyEl.textContent =
-        "Short answer: Something went wrong talking to the rules server.\n\n" +
-        "Details: Check that the backend is running at http://127.0.0.1:8000 and reachable from this page.";
-
-      setStatus("ERROR CONTACTING BACKEND");
-      scrollToBottom();
+      thinkingMsg.querySelector(".message-body").textContent =
+        "SHORT ANSWER: Connection lost in the Wasteland.\n\nREASONING: Couldn't reach the rules server. Is the backend running and reachable?";
+      setStatus("ERROR");
     } finally {
       isSending = false;
       askButton.disabled = false;
+      input.focus();
     }
   }
 
-  // FORM SUBMIT / ENTER KEY
-
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
+  // Submit handlers
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
     const q = input.value.trim();
     if (!q) return;
     input.value = "";
     sendQuestion(q);
   });
 
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
       form.dispatchEvent(new Event("submit"));
     }
   });
 
-  // Initial status
+  // Welcome message (optional – delete if you don’t want it)
+  appendMessage("bot", "Pip-Boy Rules Oracle online.\nAsk me anything about Fallout: Factions – Nuka-World.", [1]);
+
   setStatus("READY");
 });
